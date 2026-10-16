@@ -1,0 +1,10 @@
+# Layered on top of values-<env>.yaml for a local or CI kind cluster:
+# images are loaded into the cluster directly, and there's no ingress or SSL.
+image:
+  registry: ""
+  pullPolicy: Never
+backend:
+  env:
+    DB_SSL_ENABLED: "false"
+ingress:
+  enabled: false

@@ -1,0 +1,11 @@
+# staging: like RTC's SkyU "staging" environment (rtcaws-qa, "Perftest"), the busiest one.
+backend:
+  replicas: 2
+  env:
+    CORS_ALLOWED: https://staging.lab.example
+ingress:
+  enabled: true
+  host: staging.lab.example
+web:
+  env:
+    REACT_APP_API_URL: https://staging.lab.example/api/v2

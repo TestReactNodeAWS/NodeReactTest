@@ -1,0 +1,15 @@
+{
+  "name": "node-react-test",
+  "private": true,
+  "description": "RTC pipeline lab: backend, web and Liquibase packages with the same shape as realtime-core.",
+  "scripts": {
+    "lint": "npm --prefix packages/backend run lint",
+    "test": "npm --prefix packages/backend test",
+    "build": "npm --prefix packages/backend run build",
+    "stack:up": "docker compose -f docker/docker-compose.yml up --build",
+    "stack:down": "docker compose -f docker/docker-compose.yml down -v"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

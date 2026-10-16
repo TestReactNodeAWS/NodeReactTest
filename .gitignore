@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+coverage/
+*.log
+.env
+.env.local
+.env.*.local
+*-test-results.json
+junit.xml
+.DS_Store
+.idea/

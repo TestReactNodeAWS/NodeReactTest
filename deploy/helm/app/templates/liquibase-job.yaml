@@ -1,0 +1,43 @@
+{{- if .Values.liquibase.enabled }}
+# Runs before every install and upgrade, so the database is migrated before the new backend
+# starts. This replaces the SkyU liquibase pipeline that RTC runs first in each release.
+# If it fails, Helm stops the release and the old version keeps running.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-liquibase
+  labels:
+    {{- include "lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: liquibase
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "lab.selector" (dict "root" . "component" "liquibase") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: liquibase
+          image: {{ include "lab.image" (dict "root" . "component" "liquibase") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [{{ .Values.liquibase.command | quote }}]
+          # Hooks run before the chart's ConfigMap exists, so the non-secret settings are set here
+          # and the secret ones come from the Secret that is created outside the chart.
+          env:
+            - name: DB_PORT
+              value: {{ .Values.backend.env.DB_PORT | quote }}
+            - name: DB_DATABASE
+              value: {{ .Values.backend.env.DB_DATABASE | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.backend.existingSecret }}
+{{- end }}

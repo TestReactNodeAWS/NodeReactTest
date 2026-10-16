@@ -1,0 +1,43 @@
+# Full test run after every merge, like RTC's nightly-unit-test-run.yml
+# (which, despite the name, runs on every push to master and releases/**).
+name: Test - After merge
+
+on:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests
+    uses: ./.github/workflows/reusable-test.yaml
+    with:
+      mode: full
+
+  report-failure:
+    name: Post failure in Teams
+    needs: tests
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to the Teams webhook (skipped if TEAMS_WEBHOOK_URL isn't set)
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TEAMS_WEBHOOK_URL" ]; then echo "No TEAMS_WEBHOOK_URL secret; nothing to post."; exit 0; fi
+          curl -fsS -H 'Content-Type: application/json' \
+            -d "{\"text\": \"Tests failed on ${GITHUB_REF_NAME}: ${RUN_URL}\"}" \
+            "$TEAMS_WEBHOOK_URL"

@@ -1,0 +1,97 @@
+# Rehearses a SkyU-style deploy with Helm, on a throwaway Kubernetes cluster (kind) inside the runner.
+# The steps match a real deploy: migrate the database first (Liquibase pre-install hook),
+# then roll out backend and web, then smoke test.
+# Stage 6 swaps the kind steps for AWS EKS; see the commented block below.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Which values file to deploy with'
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }} (kind rehearsal)
+    runs-on: ubuntu-latest
+    # Stage 6: add `environment: ${{ inputs.environment }}` here to use GitHub Environments
+    # (approvals on prod, per-environment secrets). Needs a public repo or a paid plan.
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create a throwaway Kubernetes cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: lab
+
+      - uses: azure/setup-helm@v4
+
+      - name: Build images and load them into the cluster
+        run: |
+          images="backend liquibase"
+          if [ -f packages/web/package.json ]; then images="$images web"; fi
+          for image in $images; do
+            docker build -f "docker/${image}.Dockerfile" -t "nodereacttest-${image}:${TAG}" .
+            kind load docker-image "nodereacttest-${image}:${TAG}" --name lab
+          done
+          if [ -f packages/web/package.json ]; then echo "WEB_ENABLED=true" >> "$GITHUB_ENV"; else echo "WEB_ENABLED=false" >> "$GITHUB_ENV"; fi
+
+      # Real environments use a managed database (RDS); this one exists only for the rehearsal.
+      - name: Start a throwaway database
+        run: |
+          kubectl apply -f deploy/kind/postgres.yaml
+          kubectl rollout status deployment/lab-postgres --timeout=120s
+
+      # In real environments this Secret comes from AWS Secrets Manager (External Secrets Operator),
+      # which replaces SkyU's config mounts for secret values.
+      - name: Create the app secret
+        run: |
+          kubectl create secret generic lab-backend-secrets \
+            --from-literal=DB_HOST=lab-postgres \
+            --from-literal=DB_USER=lab \
+            --from-literal=DB_PASSWORD=lab
+
+      - name: Deploy with Helm (Liquibase runs first as a pre-install hook)
+        run: |
+          helm upgrade --install lab deploy/helm/app \
+            -f "deploy/helm/app/values-${TARGET_ENV}.yaml" \
+            -f deploy/helm/app/values-kind.yaml \
+            --set image.tag="${TAG}" \
+            --set web.enabled="${WEB_ENABLED}" \
+            --wait --atomic --timeout 5m
+
+      - name: Smoke test
+        run: |
+          kubectl port-forward service/lab-backend 5010:5010 &
+          sleep 5
+          curl -fsS http://localhost:5010/health
+          curl -fsS -X POST -H 'Content-Type: application/json' -d '{"name":"smoke test"}' http://localhost:5010/api/v2/items
+          curl -fsS http://localhost:5010/api/v2/items
+
+      - name: Show what is running
+        if: always()
+        run: |
+          kubectl get pods,jobs,services
+          kubectl logs -l app.kubernetes.io/component=liquibase --tail=50 || true
+          kubectl logs -l app.kubernetes.io/component=backend --tail=50 || true
+
+      # Stage 6, deploying to AWS EKS instead of kind:
+      #
+      # permissions:
+      #   id-token: write   # lets GitHub log in to AWS with OIDC, no stored keys
+      # steps:
+      #   - uses: aws-actions/configure-aws-credentials@v4
+      #     with:
+      #       role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      #       aws-region: ap-southeast-2
+      #   - run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER }}"
+      #   - run: helm upgrade --install lab deploy/helm/app -f deploy/helm/app/values-${TARGET_ENV}.yaml --set image.tag=${TAG} --wait --atomic

@@ -1,0 +1,53 @@
+# The merge gate, like RTC's pull-request.yaml. Make these checks required in the
+# branch protection rule for main.
+name: Pull Request - Validate PR
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests
+    uses: ./.github/workflows/reusable-test.yaml
+    with:
+      mode: pr
+
+  # RTC has no security scan on PRs today (SkyU's PR scans never run). This adds one.
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan dependencies and config for HIGH and CRITICAL issues
+        uses: aquasecurity/trivy-action@0.28.0 # pin to a commit SHA before relying on this
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  docker-build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, liquibase, web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip web until the frontend exists
+        id: check
+        run: |
+          if [ "${{ matrix.image }}" = "web" ] && [ ! -f packages/web/package.json ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Build ${{ matrix.image }} image (not pushed)
+        if: steps.check.outputs.skip != 'true'
+        run: docker build -f docker/${{ matrix.image }}.Dockerfile -t lab-${{ matrix.image }}:pr .

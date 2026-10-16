@@ -1,0 +1,56 @@
+# Defaults shared by every environment. values-<env>.yaml overrides them.
+
+image:
+  # Images are named <registry>/<prefix>-<component>:<tag>. Leave registry empty for local kind images.
+  registry: ghcr.io/testreactnodeaws
+  prefix: nodereacttest
+  tag: latest # set by the deploy workflow to the commit SHA
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+backend:
+  enabled: true
+  replicas: 1
+  port: 5010
+  # Non-secret settings, rendered into a ConfigMap. This replaces SkyU's per-environment config mounts.
+  env:
+    NODE_ENV: production
+    APP_NAME: lab-backend
+    PORT: "5010"
+    CORS_ALLOWED: ""
+    DB_PORT: "5432"
+    DB_DATABASE: lab
+    DB_SSL_ENABLED: "false"
+  # Secret settings (DB_HOST, DB_USER, DB_PASSWORD) live in a Secret created outside the chart:
+  # by External Secrets Operator from AWS Secrets Manager in real environments, by kubectl locally.
+  existingSecret: lab-backend-secrets
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+web:
+  enabled: true
+  replicas: 1
+  port: 80
+  # Written into /env-config.js when the container starts (see docker/resources/30-env-to-file.sh).
+  env:
+    REACT_APP_API_URL: /api/v2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+liquibase:
+  enabled: true
+  command: update
+
+ingress:
+  enabled: false
+  className: nginx
+  host: ""

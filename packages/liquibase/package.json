@@ -1,0 +1,13 @@
+{
+  "name": "@lab/liquibase",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Database changelogs. Runs through the Liquibase Docker image, so only Docker is needed.",
+  "scripts": {
+    "deploy:local": "docker compose -f ../../docker/docker-compose.yml run --rm liquibase update",
+    "status": "docker compose -f ../../docker/docker-compose.yml run --rm liquibase status",
+    "validate": "docker compose -f ../../docker/docker-compose.yml run --rm liquibase validate",
+    "rollback-one": "docker compose -f ../../docker/docker-compose.yml run --rm liquibase rollback-count --count=1",
+    "test-rollbacks": "docker compose -f ../../docker/docker-compose.yml run --rm liquibase update-testing-rollback"
+  }
+}

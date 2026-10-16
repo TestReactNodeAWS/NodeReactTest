@@ -1,0 +1,5 @@
+* text=auto
+# Shell scripts and Dockerfiles run on Linux, so keep LF line endings even on Windows.
+*.sh text eol=lf
+*Dockerfile text eol=lf
+*.Dockerfile text eol=lf

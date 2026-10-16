@@ -1,0 +1,134 @@
+# Shared test jobs. Called by pull-request.yaml (mode: pr) and after-merge.yaml (mode: full),
+# the same split RTC has between test:pr and test:nightly.
+name: Reusable - Tests
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: 'pr runs only tests affected by the change; full runs everything'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.18.0'
+
+jobs:
+  detect:
+    name: Detect packages
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.check.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f packages/web/package.json ]; then echo "web=true" >> "$GITHUB_OUTPUT"; else echo "web=false" >> "$GITHUB_OUTPUT"; fi
+
+  api-build:
+    name: API Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/backend/package-lock.json
+      - run: npm ci
+      - name: Lint (type check + ESLint)
+        run: npm run lint
+      - run: npm run build
+
+  api-test:
+    name: API Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # test:pr compares against origin/main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/backend/package-lock.json
+      - run: npm ci
+      - name: Test
+        run: npm run ${{ inputs.mode == 'pr' && 'test:pr' || 'test:nightly' }}
+
+  api-integration-test:
+    name: API Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lab
+          POSTGRES_PASSWORD: lab
+          POSTGRES_DB: labtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_USER: lab
+      DB_PASSWORD: lab
+      DB_DATABASE: labtest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Liquibase image
+        run: docker build -f docker/liquibase.Dockerfile -t lab-liquibase:ci .
+      # Applies every changeset, rolls them back, and applies them again,
+      # which proves each changeset's <rollback> works.
+      - name: Apply database changes and test rollbacks
+        run: >-
+          docker run --rm --network host
+          -e DB_HOST -e DB_PORT -e DB_USER -e DB_PASSWORD -e DB_DATABASE
+          lab-liquibase:ci update-testing-rollback
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/backend/package-lock.json
+      - name: Install
+        working-directory: packages/backend
+        run: npm ci
+      - name: Integration tests
+        working-directory: packages/backend
+        run: npm run test:integrationTests
+
+  web-test:
+    name: WEB Test and Build
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm test --if-present
+        env:
+          CI: 'true'
+      - run: npm run build

@@ -1,0 +1,32 @@
+{{- if .Values.ingress.enabled }}
+# One host per environment: /api goes to the backend, everything else to the web app.
+# RTC's equivalent is the NGINX ingress behind web.realtimeconveyancer.com.au and rtcaws-*.rtcmgmt.com.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "lab.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress is enabled" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-backend
+                port:
+                  number: {{ .Values.backend.port }}
+          {{- if .Values.web.enabled }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-web
+                port:
+                  number: {{ .Values.web.port }}
+          {{- end }}
+{{- end }}

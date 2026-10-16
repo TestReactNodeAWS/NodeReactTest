@@ -1,0 +1,43 @@
+# Throwaway Postgres for a local or CI kind cluster only. Data is lost when the pod stops.
+# Real environments use a managed database (AWS RDS), set through the app Secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lab-postgres
+  template:
+    metadata:
+      labels:
+        app: lab-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          env:
+            - name: POSTGRES_USER
+              value: lab
+            - name: POSTGRES_PASSWORD
+              value: lab
+            - name: POSTGRES_DB
+              value: lab
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "lab", "-d", "lab"]
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-postgres
+spec:
+  selector:
+    app: lab-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

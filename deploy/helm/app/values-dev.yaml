@@ -1,0 +1,10 @@
+# dev: like RTC's SkyU "dev" environment (rtcaws-sit).
+backend:
+  env:
+    CORS_ALLOWED: https://dev.lab.example
+ingress:
+  enabled: true
+  host: dev.lab.example
+web:
+  env:
+    REACT_APP_API_URL: https://dev.lab.example/api/v2

@@ -1,0 +1,6 @@
+Deployed {{ .Release.Name }} with image tag {{ .Values.image.tag }}.
+
+Check it:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl port-forward service/{{ .Release.Name }}-backend {{ .Values.backend.port }}:{{ .Values.backend.port }}
+  curl http://localhost:{{ .Values.backend.port }}/health

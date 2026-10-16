@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lab
+description: Backend, web and Liquibase job for the RTC pipeline lab. Replaces what SkyU holds for RTC today.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
