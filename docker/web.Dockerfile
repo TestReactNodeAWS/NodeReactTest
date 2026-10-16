@@ -1,7 +1,7 @@
 # Build from the repo root: docker build -f docker/web.Dockerfile .
 # Settings are not baked in. 30-env-to-file.sh writes REACT_APP_* variables into
 # /env-config.js when the container starts, so one image works in every environment.
-ARG NODE_IMAGE=node:22.18.0-bookworm-slim
+ARG NODE_IMAGE=node:22.23.3-bookworm-slim
 
 FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
@@ -10,7 +10,7 @@ RUN npm ci
 COPY packages/web ./
 RUN npm run build
 
-FROM nginx:1.27-alpine AS release
+FROM nginx:1.30.6-alpine AS release
 # dist for Vite, build for Create React App.
 ARG WEB_BUILD_DIR=dist
 COPY docker/resources/nginx-spa.conf /etc/nginx/conf.d/default.conf
