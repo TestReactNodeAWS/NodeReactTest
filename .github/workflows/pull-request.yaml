@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Scan dependencies and config for HIGH and CRITICAL issues
-        uses: aquasecurity/trivy-action@0.28.0 # pin to a commit SHA before relying on this
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
