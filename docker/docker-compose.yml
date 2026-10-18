@@ -1,4 +1,4 @@
-# Local stack: Postgres, migrations, backend, and (once it exists) the web app.
+# Local stack: Postgres, migrations, backend, and the web app.
 #   docker compose -f docker/docker-compose.yml up --build
 #   docker compose -f docker/docker-compose.yml --profile web up --build   # include the web app
 name: lab

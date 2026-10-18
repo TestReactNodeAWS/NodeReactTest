@@ -4,7 +4,7 @@ Each stage rebuilds one piece of what RTC needs to leave SkyU. Do them in order;
 
 | Stage | Goal | Status | RTC piece it rehearses |
 | --- | --- | --- | --- |
-| 1. Sample app | Backend, Liquibase, Dockerfiles and local stack | Scaffolded. Frontend to be added in `packages/web` | Repo layout |
+| 1. Sample app | Backend, Liquibase, Dockerfiles and local stack | Scaffolded, including the frontend in `packages/web` | Repo layout |
 | 2. PR check | Lint, unit tests, integration tests on a migrated Postgres, image builds, security scan | Scaffolded | `pull-request.yaml`, plus the PR scan SkyU never ran |
 | 3. After-merge tests | Full tests on `main` and release branches, Teams alert on failure | Scaffolded | `nightly-unit-test-run.yml` |
 | 4. Build images | Build once, scan, push, tag with the commit SHA | Scaffolded (GHCR) | SkyU build-and-push |
@@ -17,7 +17,6 @@ Each stage rebuilds one piece of what RTC needs to leave SkyU. Do them in order;
 
 - Give the developers **Write** access to the repo (today it's Read only).
 - Protect `main` and make the "Pull Request - Validate PR" checks required.
-- Commit `packages/backend/package-lock.json` (run `npm install` once in `packages/backend`).
 
 ## Before stage 6
 

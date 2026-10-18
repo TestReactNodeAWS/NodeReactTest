@@ -21,7 +21,7 @@ curl -X POST -H "Content-Type: application/json" -d '{"name":"first"}' http://lo
 curl http://localhost:5010/api/v2/items
 ```
 
-Add the web app once it exists: `docker compose -f docker/docker-compose.yml --profile web up --build`, then open http://localhost:8080.
+Add the web app: `docker compose -f docker/docker-compose.yml --profile web up --build`, then open http://localhost:8080.
 
 Stop and wipe the database: `docker compose -f docker/docker-compose.yml down -v`.
 
@@ -38,7 +38,20 @@ npm run test:integrationTests
 npm run dev
 ```
 
-## 3. Database changes
+## 3. Work on the web app
+
+```bash
+docker compose -f docker/docker-compose.yml up -d   # backend on 5010
+cd packages/web
+npm ci
+npm run lint
+npm test
+npm start                                           # http://localhost:3000
+```
+
+`npm start` sends `/api/v2` calls to the backend on port 5010 (the `proxy` setting in `package.json`).
+
+## 4. Database changes
 
 ```bash
 cd packages/liquibase
@@ -47,7 +60,7 @@ npm run status            # what's pending
 npm run test-rollbacks    # apply, roll back, apply again
 ```
 
-## 4. Deploy to Kubernetes on your laptop
+## 5. Deploy to Kubernetes on your laptop
 
 These are the same steps `deploy.yaml` runs in CI.
 
@@ -55,7 +68,7 @@ These are the same steps `deploy.yaml` runs in CI.
 kind create cluster --name lab
 
 TAG=local
-for image in backend liquibase; do
+for image in backend liquibase web; do
   docker build -f docker/$image.Dockerfile -t nodereacttest-$image:$TAG .
   kind load docker-image nodereacttest-$image:$TAG --name lab
 done
@@ -67,10 +80,14 @@ kubectl create secret generic lab-backend-secrets \
 
 helm upgrade --install lab deploy/helm/app \
   -f deploy/helm/app/values-dev.yaml -f deploy/helm/app/values-kind.yaml \
-  --set image.tag=$TAG --set web.enabled=false --wait --atomic
+  --set image.tag=$TAG --wait --atomic
 
 kubectl port-forward service/lab-backend 5010:5010
 curl http://localhost:5010/health
+
+# In another terminal: the web app, and the settings its container wrote at start-up
+kubectl port-forward service/lab-web 8080:80
+curl http://localhost:8080/env-config.js
 ```
 
 Useful while learning:

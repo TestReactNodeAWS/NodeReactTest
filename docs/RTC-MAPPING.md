@@ -8,7 +8,7 @@ Every file here stands in for a piece of `realtime-core` or of SkyU. When you've
 | --- | --- | --- |
 | `packages/backend` | `packages/backend` | Same v2 layering, typedi wiring, `/api/v2` routes, port 5010, `.env` names |
 | `packages/liquibase` | `packages/liquibase` | Same rules (new file per change, every changeset has a rollback). RTC wraps Liquibase in a Node CLI; here the Docker image runs it directly |
-| `packages/web` | `packages/web` | Same `REACT_APP_*` settings, read at start-up instead of build time |
+| `packages/web` | `packages/web` | Same Create React App setup, libraries and `REACT_APP_*` settings. No Auth0 or generated API types; see `packages/web/README.md` |
 | `docker/*.Dockerfile` | `docker/backend.Dockerfile`, `web.Dockerfile`, `liquibase.Dockerfile` | Same three images |
 | `docker/resources/30-env-to-file.sh` | `docker/resources/21-react-env-to-file.sh` | Lets one web image be promoted through every environment |
 | `docker/docker-compose.yml` | `docker/docker-compose.yml` | Local stack |

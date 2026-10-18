@@ -1,40 +1,49 @@
-# Web (frontend developer)
+# Web
 
-This folder is for the React app. The pipelines and Docker image are already set up and switch on automatically once `packages/web/package.json` exists.
+A small React app set up the same way as RTC's `packages/web`, so the pipelines, Docker image and settings behave the same.
 
-## What the pipelines expect
+## Same as RTC
 
-| Requirement | Why |
+| Piece | Here and in RTC |
 | --- | --- |
-| `package.json` and `package-lock.json` in this folder | CI runs `npm ci` here |
-| `npm run build` writes the site to `dist/` (Vite) or `build/` (Create React App) | The Docker image copies it into nginx. Set `WEB_BUILD_DIR` in `docker/web.Dockerfile` if it isn't `dist` |
-| `npm run lint` and `npm test` (optional) | The PR check runs them if they exist |
-| Settings read at runtime from `window.__ENV__`, not baked in at build time | So one image can be promoted from dev to staging to prod, like RTC |
+| Build tool | Create React App (`react-scripts`), output in `build/` |
+| Libraries | React 16, Material UI v4, styled-components, react-query v3, react-router v5, axios, TypeScript |
+| Layout | `src/index.tsx` → `AppProviders.tsx` → `App.tsx`, then `pages/`, `components/`, `hooks/`, `requests/`, and `config.ts` for settings |
+| Tests | Jest through `react-scripts test`, with Testing Library, in `__tests__` folders |
+| Lint | `npm run lint` runs the type check, then ESLint |
+| Settings | `REACT_APP_*` names, read at start-up, not baked in at build time |
+| Local API | `npm start` proxies API calls to the backend on port 5010 |
 
-## Runtime settings
+## Different from RTC
 
-At container start, `docker/resources/30-env-to-file.sh` writes every `REACT_APP_*` environment variable into `/env-config.js`:
+- No login. RTC uses Auth0; the lab backend has no authentication.
+- No generated API types. RTC generates them from `packages/api-docs`; here they're in `src/types.ts`.
+- Settings come from `window.__ENV__` in `/env-config.js` (RTC: `window._env_` in `/env.js`). Same idea, different names.
+- No Enzyme. RTC still has some Enzyme tests; Testing Library is used for everything here.
 
-```js
-window.__ENV__ = { "REACT_APP_API_URL": "https://.../api/v2" };
+## Commands
+
+```bash
+npm ci
+npm start              # http://localhost:3000, needs the backend on 5010 (see docs/LOCAL-SETUP.md)
+npm run lint
+npm test               # once, with coverage (what CI runs)
+npm run test:dev       # watch mode
+npm run build          # writes build/
 ```
 
-Load it before the app in `index.html`, and read settings from it:
+## Settings
 
-```html
-<script src="/env-config.js"></script>
-```
+`src/config.ts` reads each setting from `window.__ENV__`, then `process.env`, then a default:
 
-```ts
-const apiUrl = window.__ENV__?.REACT_APP_API_URL ?? 'http://localhost:5010/api/v2';
-```
+| Setting | Default | What it is |
+| --- | --- | --- |
+| `REACT_APP_API_URL` | `/api/v2` | Where the backend API is |
+| `REACT_APP_BUILD_VERSION` | empty | Shown in the top bar when set |
 
-RTC uses the `REACT_APP_` prefix too (for example `REACT_APP_API_URL`, `REACT_APP_AUTH0_DOMAIN`), so the names carry over.
+In the Docker image, `docker/resources/30-env-to-file.sh` writes every `REACT_APP_*` environment variable into `/env-config.js` when the container starts. Helm sets them from `web.env` in `deploy/helm/app/values-<env>.yaml`, so the same image goes from dev to staging to prod.
 
-## Backend API
+## Backend API it uses
 
-- `GET /health`
 - `GET /api/v2/items`
 - `POST /api/v2/items` with `{ "name": "..." }`
-
-The local stack runs the backend at `http://localhost:5010`, and its CORS settings already allow `http://localhost:3000` and `http://localhost:8080`.
