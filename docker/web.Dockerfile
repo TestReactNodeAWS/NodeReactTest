@@ -13,6 +13,8 @@ RUN npm run build
 FROM nginx:1.30.6-alpine AS release
 # build for Create React App (what packages/web uses, like RTC), dist for Vite.
 ARG WEB_BUILD_DIR=build
+# Apply Alpine security fixes released since the base image was built.
+RUN apk upgrade --no-cache
 COPY docker/resources/nginx-spa.conf /etc/nginx/conf.d/default.conf
 COPY docker/resources/30-env-to-file.sh /docker-entrypoint.d/30-env-to-file.sh
 RUN chmod +x /docker-entrypoint.d/30-env-to-file.sh

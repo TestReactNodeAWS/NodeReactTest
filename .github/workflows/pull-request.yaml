@@ -35,6 +35,8 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
+  # Builds and scans each image the same way build-images.yaml does after merge,
+  # so a vulnerable base image blocks the PR instead of failing on main.
   docker-build:
     name: Docker build check
     runs-on: ubuntu-latest
@@ -51,3 +53,11 @@ jobs:
       - name: Build ${{ matrix.image }} image (not pushed)
         if: steps.check.outputs.skip != 'true'
         run: docker build -f docker/${{ matrix.image }}.Dockerfile -t lab-${{ matrix.image }}:pr .
+      - name: Scan ${{ matrix.image }} image
+        if: steps.check.outputs.skip != 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: lab-${{ matrix.image }}:pr
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
